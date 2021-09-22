@@ -163,6 +163,71 @@ hole 不占实际的硬盘空间，改变显示大小，但不改变实际磁盘
 
 
 
+### 3.7 read Function
+
+用来打开文件
+```c++
+#include<unistd.h>
+ssize_t read (int fd, void *buf, size_t nbytes);
+//成功返回读取文件大小，如果达到文件结尾返回0，如果错误返回-1
+```
+
+1. 当读取一般文件时，如果在达到读取大小前已经读取到文件结尾，那么会返回当前读取的字节个数，在下次读取时，返回0。
+2. fd为终端设备是，每次只读取一行。
+3. 从网络中读取时，网络内的蝗虫可能导致返回的数量少去请求数量。
+4. 当从管道或者FIFO，如果管道包含的字符少于请求字符，返回可能的字符。
+5. when reading from a record-oriened device. Some record-oriented devices, such as magnetic tape, can return up to a single record at a time.
+6.  
+
+read操作开始与文件当前偏移。 在成功返回之前，偏移会随着实际读取的字符而增长。
+
+
+
+### 3.8 read Function
+
+写入一个打开的文件
+
+```c++
+#include<unistd.h>
+ssize_t write (int fd,const void *buf, size_t nbytes);
+//成功返回吸入文件大小，如果错误返回-1
+```
+
+返回值一般等与nbytes参数值，如果不等于则会发生错误。
+
+write error 一般发生于磁盘空间被占满，或者超过给定进程的文件大小限制。
+
+
+
+### 3.9 I/O Efficiency
+
+  ### 3.10 File Sharing
+
+![打开文件的内核数据结构](F:\_github\studying\jpg\打开文件的内核数据结构.jpg)
+
+* 内核用三种数据结构表示打开的文件，其之间关系决定了文件共享方面的一个进程对另一个进程可能产生的影响
+
+1. 进程表项
+
+   每个进程在进程表中都有个记录项，每个记录项包含一张文件描述符表，每个文件描述符表关联两个数据：
+
+   a）文件描述符标志位
+
+   b） 一个指向文件表项的指针
+
+2. 文件表项：
+
+   a） 文件状态标志位，如read状态、write状态、append状态、sync（同步）状态、nonblocking状态
+
+   b） 当前文件偏移
+
+   c） 一个指向文件v-node表项的指针
+
+3. v节点表
+
+   文件在磁盘中的一些基础信息
+
+发陈法蓉rrrrrrrrrrrrrrrrrrr
 
 # 5.0  标准I/O库
 
