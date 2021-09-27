@@ -226,12 +226,210 @@ write error 一般发生于磁盘空间被占满，或者超过给定进程的�
 3. v节点表
 
    文件在磁盘中的一些基础信息
+   
+   
 
-发陈法蓉rrrrrrrrrrrrrrrrrrr
+### 3.11 Atomic Operations
 
-# 5.0  标准I/O库
+* 原子操作：一系列操作要么全部成功，要么全部失败
 
-# 7.0  进程环境 
+多个线程在进程见共享文件描述符表，当同时打开文件时，每个文件指针指向各自的文件目录项，文件目录项保存了当前文件偏移以及文件状态标志，所以当多个线程同时读写文件，可能会导致错误。
+
+所以要保证操作的原子性
+
+
+
+### 3.12 dup and dup2 Function ！
+
+```c++
+#include<unistd.h>
+int dup(int fd);
+int dup2(int fd, int fd2);
+//返回新的文件描述符，错误返回-1
+```
+
+* dup函数返回最低可用文件描述符，且与fd参数共享文件表项，
+
+ 
+
+### 3.13 sync, fsync, and fdatasync Functions
+
+;
+
+
+
+## 5.0  标准I/O库
+
+### 5.2 Standard I/O Library
+
+* 流的定向
+
+  对于ASCII字符集，一个字符用一个字节表示。对于国际字符集，一个字符可用多个字节表示。标准I/O文件流可用单机直接或多字节表示。**流的定向决定所读写的字符是单字节还是多字节的**。
+
+  通过freopen 函数来清除流的定向。
+
+  通过fwide 函数设置流的定向。
+
+* fwide 函数
+
+  ```c++
+  #include<stdio.h>
+  #include<wcher.h>
+  int fwide(FILE *fp, int mode);
+  //宽定向返回正值，字节定向返回负值，为定向返回0
+  ```
+
+  * 如果mode参数值为负，fwide将试图指定流字节定向
+  * 如果mode参数值为正，fwide将试图指定流字节定向
+
+* 指向FILE对象的指针
+
+  打开一个流时。fopen返回一个指向FILE对象的指针。该指针是一个结构体，包含了管理该流的所需要的信息：
+
+  * 用于实际I/O的文件描述符； 
+  * 指向用于该流缓冲区的指针；
+  * 当前在缓冲区中的字符数；
+  * 出错标志；
+  * 等等。
+
+  通过文件
+
+
+
+### 5.3 Standard Input， Standard Output， and Standard Error
+
+这些流已被预定义且由可以由进程自动获取
+
+
+
+### 5.4 Buffering
+
+由标准I/O库提供的缓冲区的目标是使得read 函数和 write 函数的调用尽可能的少（read，write 是系统调用，需要从用户态切换到内核态，开销比较大）
+
+1. 全缓冲。在这种情况下，**当标准I/O缓冲已满时，所使用的缓冲区通常为在流上执行I/O时，有调用malloc的一个标准I/O函数获得的。**
+
+   术语flush 描述了标准I/O缓冲区的写入。缓冲区有标准I/O例程自动刷新，或者可以调用fflush 函数来刷新流。flush在unix环境中两个用途，一是写出缓冲区的内容，二是丢弃存在缓冲区中的数据。
+
+2. 行缓冲。
+
+   在一个流被指向了一个终端设备时，通常使用行缓冲。
+
+3. 无缓冲。标准I/O库不缓冲字符。
+
+* 标准输入和标准输入通常是全缓冲的，仅除了打开一个交互类的流
+
+* 标准错误从不全缓冲
+
+  默认情况下：
+
+  * 标准错误非缓冲
+  * 当流打开一个终端设备时，流是行缓冲的；否则就是全缓冲的。
+    * 标准错误无缓冲；打开终端设备的标准输入输出流行缓冲；其他标准输入输出流全缓冲。
+
+可以通过setbuf 函数或者setvbuf 函数设置缓冲
+
+```c++
+#include<stdio.h>
+void setbuf(FILE *restrict fp, char *restrict buf);
+int  setvbuf(FILE *restrict fp, char *restrict buf, int mode, size_t size);
+//成功返回0，失败返回非零数
+```
+
+**这些操作只能在一个流被打开后且任何其他操作执行前进行。**
+
+* setbuf
+
+  打开或者关闭缓冲。启用缓冲，buf必须指向长度为BUFSIZ的缓冲区，这是<stdio.h>中定义的常量。通常，流被完全缓冲，但**是如果流与终端设备关联，一些系统可能会设置行缓冲。为了禁用缓冲，通过使buf设置为NULL。**
+
+* setvbuf
+
+  通过setvbuf 可以将buffering设置成我们要用的，
+
+  * _IOFBF fully buffered
+  * _IOLBF line buffered
+  * _IONBF unbufered
+
+  如果使用的是无缓冲流，那么buf和大小参数会被忽视。如果设置了全缓冲或者行缓冲，则可以设置缓冲及其大小。如果流是被设置需要缓冲的但是buf 设置成了NULL，那标准程序库会给流自动分配独有的缓冲区及合适的大小。
+
+  而所谓合适的大小，一般指一个特殊的常量值BUFSIZ
+
+  **如果在函数分配标准I/O缓冲区作为自动变量，则必须从函数返回之前关闭流**
+
+  通过以下函数强制使刷新流
+
+  ```c++
+  #include<stdio.h>
+  int fflush(FILE *fp);
+  //成功返回0，否则EOF返回error
+  ```
+
+  fflush 函数使所有流中未写入的数据传至内核。
+
+  特例：fp为NULL时，fflush 使所有输出流被刷新
+
+  
+
+### 5.5 Opening a Stream
+
+三个函数打开标准I/O流
+
+```c++
+#include<stdio.h>
+FILE *fopen(const char *restrict pathname, const char *restrict type);
+FILE *freopen(const char *restrict pathname, const char *restrict type, FILE *restrict fp);
+FILE *fdopen(int fd, const char *type);
+```
+
+* fopen
+
+  * 打开一个指定的文件
+
+* freopen
+
+  * 在某个流上打开一个指定文件，若流已经打开，则关闭流。若流已经定向，则清除定向
+  * 将流重新联系到某个文件中，同时会清除流的定向，通常用于预定义的流的重新关联（stdin，stdout，stderr）
+  
+  ```c++
+    #include<stdio.h>
+    #include<stdlib.h>
+    #define PATH1 "1.txt"
+    #define PATH2 "2.txt"
+    
+    FILE *output1,*output2;
+    char buffer[25]={'x','y','z'};
+    int main(void){
+    /*
+        if(freopen(PATH,"a",stdout)==NULL)
+            printf("error\n");
+        printf("heloworld");
+        fclose(stdout);     
+        if(freopen(PATH,"r",stdin))
+        return 0;
+    */
+        output1 = fopen(PATH1,"a");
+        if(output1==NULL){
+            printf("error");
+            exit(1);
+        }
+        freopen(PATH2,"a",output1);
+        fwrite(buffer,sizeof(char),sizeof(buffer),output1);
+        fclose(output1);
+        return 0; 
+    }
+  
+  ```
+  
+* fdopen
+
+  * 获取一个已存在的文件描述符（这个文件描述符通过open、dup、dup2、fcnt1、pipe、socket、socketpair或者accept函数得到此文件描述符）
+  * 此函数常用于由创建管道和网络通信通道函数返回的描述符。这类特殊的文件没办法由标准I/O函数fopen 打开
+  * 必须通过调用设备专用函数获取文件描述符，然后用fdopen是一个标准I/O流和该描述符相关联。
+
+
+
+
+
+# 7.0  进程环境  
 
 # 8.0  进程控制
 
