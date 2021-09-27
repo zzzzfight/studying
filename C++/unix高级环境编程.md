@@ -203,7 +203,7 @@ write error 一般发生于磁盘空间被占满，或者超过给定进程的�
 
   ### 3.10 File Sharing
 
-![打开文件的内核数据结构](F:\_github\studying\jpg\打开文件的内核数据结构.jpg)
+![打开文件的内核数据结构](https://github.com/zzzzfight/studying/blob/75d506b3cb59829a152fe9e37c227555f4b4bd9a/jpg/%E6%89%93%E5%BC%80%E6%96%87%E4%BB%B6%E7%9A%84%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.jpg)
 
 * 内核用三种数据结构表示打开的文件，其之间关系决定了文件共享方面的一个进程对另一个进程可能产生的影响
 
