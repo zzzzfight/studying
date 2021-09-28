@@ -94,6 +94,12 @@ TOCTTOU:如果一个程序执行两个基于文件的函数调用，其中第二
 
 
 
+**注意点**
+
+1. 对同一个文件多次用open 函数，会得到不同的文件描述符，但是共享一个文件表项，所以共享偏移值
+
+
+
 ### 3.4 create Function
 
 * 由create函数创建一个新文件
@@ -183,7 +189,7 @@ read操作开始与文件当前偏移。 在成功返回之前，偏移会随着
 
 
 
-### 3.8 read Function
+### 3.8 write Function
 
 写入一个打开的文件
 
@@ -254,7 +260,23 @@ int dup2(int fd, int fd2);
 
 ### 3.13 sync, fsync, and fdatasync Functions
 
-;
+### 3.14 fcntl Function
+
+fcntl 函数可以改变已打开文件的文件属性
+
+```c++
+#include<fcntl.h>
+int fcntl(int df, int cmd, .../*int arg */);
+//错误返回-1 成功返回与cmd相关的值
+```
+
+* 复制一个已存在的文件描述符（cmd=F——DUPFD or F_DUPFD_CLOEXEC）
+* 获取/设置文件描述符标志（cmd=F_GETFD or F_SETFD）
+* 获取/设置文件状态标志（cmd=F_GETFL or F_SETFL）
+* 获取/设置异步I/O所有权（cmd=F_GETOWN or F_SETOWN）
+* 获取/设置记录锁（cmd=F_GETLK,F_SETLKW）
+
+F_
 
 
 
@@ -425,7 +447,14 @@ FILE *fdopen(int fd, const char *type);
   * 此函数常用于由创建管道和网络通信通道函数返回的描述符。这类特殊的文件没办法由标准I/O函数fopen 打开
   * 必须通过调用设备专用函数获取文件描述符，然后用fdopen是一个标准I/O流和该描述符相关联。
 
-
+| type             | Description                             | open(2)Flages |
+| ---------------- | --------------------------------------- | ------------- |
+| r or rb          | 打开一个文件                            |               |
+| w or wb          | 缩短文件长度至0 或者 创建一个文件来写入 |               |
+| a or ab          | 扩展；打开一个文件是                    |               |
+| r+ or r+b or rb+ |                                         |               |
+| w+ or w+b or wb+ |                                         |               |
+| a+ or a+b or ab+ |                                         |               |
 
 
 
