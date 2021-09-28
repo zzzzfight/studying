@@ -207,6 +207,8 @@ write error 一般发生于磁盘空间被占满，或者超过给定进程的�
 
 ### 3.9 I/O Efficiency
 
+
+
   ### 3.10 File Sharing
 
 ![打开文件的内核数据结构](https://github.com/zzzzfight/studying/blob/75d506b3cb59829a152fe9e37c227555f4b4bd9a/jpg/%E6%89%93%E5%BC%80%E6%96%87%E4%BB%B6%E7%9A%84%E5%86%85%E6%A0%B8%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.jpg)
@@ -232,6 +234,16 @@ write error 一般发生于磁盘空间被占满，或者超过给定进程的�
 3. v节点表
 
    文件在磁盘中的一些基础信息
+   
+   a）文件所有者
+   
+   b）文件大小
+   
+   c）指针指向这些文件的数据块在磁盘中的实际位置
+   
+   d）等等
+   
+   
    
    
 
