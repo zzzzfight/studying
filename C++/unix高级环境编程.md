@@ -242,10 +242,10 @@ write error 一般发生于磁盘空间被占满，或者超过给定进程的�
    c）指针指向这些文件的数据块在磁盘中的实际位置
    
    d）等等
-   
-   
-   
-   
+
+
+
+
 
 ### 3.11 Atomic Operations
 
@@ -470,7 +470,99 @@ FILE *fdopen(int fd, const char *type);
 
 
 
-# 7.0  进程环境  
+## 7.0  进程环境 
+### 7.2 main function
+
+```c++
+//main函数的函数原型
+int main(int argc, char *argv[]);
+//argc 是命令行参数的个数  argc是一个char指针类型数组
+```
+
+当内核执行一个C程序时，会在调用main函数之前调用一个特殊的例程。可执行程序文件只当该例程为程序的起始地址。编译器调用连接器时会设置这个。
+
+
+
+### 7.3 Process Termination
+
+一个进程可以由八种方式中断：
+
+* 经常遇到的五种终止发生方式：
+
+	* 由main函数返回
+	* 调用 exit
+	* 调用 _exit 或者 _Exit
+	* 从它的开始例程返回最后一个线程
+	* 在最后一个存活的线程中调用pthread_exit
+
+* 非一般情况的三种终止发生方式
+
+  * 调用abort（10.17）
+
+  * 接受一个信号（11.5）
+
+  * 最后一个存活线程对取消请求的响应（11.5 12.7）
+
+    
+
+**Exit Function**
+
+
+```c
+#include<stdlib.h>
+void exit(int status);
+void _Exit(int status);
+#include<unistd.h>
+void _exit(int status);
+```
+
+* _exit 函数和 _Exit函数会立刻返回内核，exit 函数则会执行一些清理过程
+
+典型的，exit函数会执行关闭标准I/O库的任务：通过fclose关闭所有打开的流，这导致所有已缓冲的数据会被"冲刷"
+
+这三个函数都需要一个所谓退出状态的整型变量作为参数。大部分UNIX系统终端都提供一个方法测试这个进程退出的状态(echo $?)。
+
+有如果(a)任何函数在**没有退出状态**的情况下被调用，(b)main函数执行return 语句没有返回一个值，(c)mian 函数没有被声明返回一个整型量。那么进程的推出状态是无法预料的。
+
+
+
+**atexit Function**
+
+IOS C 下，一个进程至少可以注册32个函数由exit 自动调用。这些函数被称为**退出处理程序**
+
+```c
+#include<stdlib.h>
+int atexit(void (*func)(void));
+//OK返回0，错误返回非0
+```
+
+exit 调用这些函数的顺序和其注册顺序相反。在IOS C和 POSIX.1标准中exit 先调用推出处理程序，然后后关闭所有已打开的流。POSIX.1 扩展了IOS C标准，当一个程序执行exec 族的函数，任何已被安装的退出处理程序都将被清除。
+
+![C程序的启动的终止](../jpg/C%E7%A8%8B%E5%BA%8F%E7%9A%84%E5%90%AF%E5%8A%A8%E7%9A%84%E7%BB%88%E6%AD%A2.png)
+
+可以从图中看出：**内核执行一个程序的唯一方法是一个 exec 函数的调用，而进程的自动终止的唯一方法是 _exit 或者 _Exit 函数的调用（exit是隐式调用）。**进程可以也通过信号来非自愿终止。
+
+图中也可以看出如果通过return返回，则会将控制权交给C执行例程，由C执行例程调用 exit 函数，最终将控制权返还给内核，这也意味着，return也会导致退出处理函数的执行。
+
+
+
+### 7.4 Command-Line Arguments
+
+当一个进程被执行时，exec可以传输命令行参数传给新程序。
+
+
+
+### 7.5 Environment List
+
+
+
+
+
+
+
+![环境由五个C字符串组成](../jpg/%E7%8E%AF%E5%A2%83%E7%94%B1%E4%BA%94%E4%B8%AAC%E5%AD%97%E7%AC%A6%E4%B8%B2%E7%BB%84%E6%88%90.png)
+
+
 
 # 8.0  进程控制
 
