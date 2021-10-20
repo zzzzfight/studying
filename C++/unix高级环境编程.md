@@ -1,5 +1,34 @@
 # UNIX高级环境编程（APUE）
 
+
+
+### 1.7 出错处理
+
+* UNIX函数出错时，长返回一个负值，而且整型变量errno通常被设计为含有附加信息的一个值
+  * 如果没有出错，则其值不会被一个例程清除。因此仅当函数返回值指明出错时，才检验其值
+  * 任何一个函数都不会将errno值设置为0，在<errno.h>中定义的所有常量都不为0
+
+```c
+#include<string.h>
+char *strerror(int errnum);
+//返回值指向消息字符串的指针
+```
+
+* 此函数将errnum（errno）映射为一个出错的信息字符串，并且返回此字符串的指针。
+
+  
+
+* perror函数基于errno的当前值，在标准出错上产生一条出错信息，然后返回
+
+```c
+#include<stdio.h>
+void perror(const char *msg)
+```
+
+输出由msg指向的字符串，然后是一个冒号，一个空格好，接着对应与errno值的出错信息，最后是一个换行符
+
+
+
 ## 3.0  文件I/O
 
 ### 3. 1 介绍
@@ -470,6 +499,36 @@ FILE *fdopen(int fd, const char *type);
 
 
 
+
+
+
+
+
+
+### 5.6 读写流
+
+
+
+~~~c
+#include<stdio.h>
+int getc(FILE *fp);
+int fgetc(FILE *fp);
+int getchar(void);
+~~~
+
+
+
+~~~c
+#include<stdio.h>
+int fgets(char *restrict buf, int n,FILE *restrict fp);
+int gets(char *buf);
+~~~
+* fgets的执行顺序是，从流中获取sizeof(buffer)-1个数的字符（若文件末尾返回NULL），并会自动在末尾添加‘\0’
+* 每次添加一个字符，并判断当前添加字符是否为‘\n’，若为‘\n’,则返回。
+* 所以如果字符串长度大于缓冲区大小，则会导致‘\n’仍停留在缓冲区，导致下一次结果出错
+
+
+
 ## 7.0  进程环境 
 ### 7.2 main function
 
@@ -505,7 +564,7 @@ int main(int argc, char *argv[]);
 
     
 
-**Exit Function**
+> **Exit Function**
 
 
 ```c
@@ -526,7 +585,7 @@ void _exit(int status);
 
 
 
-**atexit Function**
+> **atexit Function**
 
 IOS C 下，一个进程至少可以注册32个函数由exit 自动调用。这些函数被称为**退出处理程序**
 
@@ -641,21 +700,582 @@ void free(void *ptr);
 
 ### 7.9 Environment Variables
 
-  
-
 ### 7.10 setjmp and longjmp Functions
 
 ### 7.11 getrlimit and setrlimit Functions
 
 ### 7.12 Summary
 
-
+​                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
 
 # 8.0  进程控制
+
+
+
+### 8.2 Process Identifiers
+
+每个进程有独一无二的进程ID（一个非负整数）。进程终止时，它们的ID会回到可重用的候选ID池中。
+
+大部分UNIX系统实现了延迟重利用的算法，使得一个新创建的进程的ID和最近刚被终止的进程ID不同，以防止新进程被误认为使用了相同ID的前一个进程。
+
+有一些特殊的进程：
+
+* 进程ID 0 是一个程序调度进程
+
+* 进程ID 1 是初始话init进程，由内核引导过程结束是调用
+
+  旧版本中是/etc/init，新版本中是/sbin/init。分则引导内核后启动UNIX系统。init会阅读系统以来的初始化文件（/etc/rc*[unix系统的启动等级文件]，/etc/inintab[系统的默认启动等级设置文件]），启动的服务放在/etc/init.d 文件中
+
+* 进程ID 2 是pagedaemon，负责支持虚拟内存系统的分页
+
+
+
+```c
+#include<unsitd.h>
+pid_t getpid(void);
+//获取当前进程id
+pid_t getppid(void);
+//获取当前进程父进程id
+uid_t getuid(void);
+//获取当前进程real user id
+uid_t geteuid(void);
+//获取当前进程effecitve user id
+gid_t getgid(void);
+//获取当前进程real group id
+git_t getegid(void);
+//获取当前进程effective group id
+```
+
+
+
+### 8.3 fork Function
+
+通过`fork` 函数创造一个新的进程
+
+```c
+#include<unistd.h>
+pid_t fork(void);
+//子进程返回0，父进程返回子进程id，错误返回-1
+```
+
+* 这个函数被调用一次，但是返回两次。
+* 父进程在创建子进程后，无法通过其他函数获取子进程id（且一个父进程可以有多个子进程）
+* 子进程可以通过`getppid`函数获取父进程id（一个子进程仅有一个父进程）
+* 子进程拥有父进程的数据空间、堆、栈的一个副本（拷贝并非共享）。
+* 子进程和父进程共享代码段（text segment）
+* 现代实现通过写时复制技术，不会对父进程执行完全的（数据、堆、栈）拷贝，父子进程共享这些域，并把它们的状态设置为只读，当任一进程尝试修改这些域时，拷贝才会发生
+
+  * 通过	
+* 父进程与子进程的执行顺序取决于内核的调用算法（之后会讨论 8.9 10.16）
+
+
+
+
+
+
+
+
+
+
+
+> **File Sharing**
+
+* 重定向父进程标准输出时，子进程的标准输出也被重定向。子进程的标准输出也会被重定向。
+* fork会使父进程的所有打开文件描述符都被复制到子进程中，且**共享文件表项**。fork后父子进程处理描述符文件的情况：
+  * 没有同步情况下，对同输出混乱。
+  * 父进程等待子进程完成。
+  * 父子各自执行不同的程序段。各自关闭不需要用的文件描述符。
+
+
+
+
+
+### 8.4 vfork Function
+
+* 用于创建一个新进程，而该进程的目的是exec一个新进程
+
+* 在进程调用exec或者exit之前，在父进程的地址空间中运行
+
+* 保证子进程先运行，在调用exec或者exit后，才允许父进程调度运行（这钟机制可能会导致依赖父进程操作的子进程产生死锁）
+
+  （fflush 到底是什么意思 exit执行terminate前的冲刷缓冲区的操作是什么意思 什么是缓冲区）
+
+
+
+### 8.5 exit Function
+
+> **正常终止操作**
+
+* main中执行return操作 等效于 执行exit。
+* 调用exit
+* _exit或者 _Exit，目的是为了提供一种无需运行终止处理程序，或者信号处理程序的终止方式，标准I/O是否被冲刷，取决于实现。
+  * 大多是UNIX系统中，exit是一个标准C库函数，_exit 是系统调用。
+* 进程最后一个线程启动例程中执行返回语句，返回值不会作用进程返回值，进程返回值为0。
+* 进程最后一个线程嗲用pthread_exit。同上
+
+> **异常终止操作**
+
+* abort，会产生SIGABRT信号
+* 进程接受信号时
+* 最后一个线程对 取消 请求做出响应。系统默认，取消以延迟方式发生：一个线程要求需要另一个线程，一段时间后，目标线程终止。
+
+> 孤儿进程
+
+* 子进程终止会将退出状态返还给父进程，如果父进程先于子进程终止，那么子进程会被init进程接受。
+
+* 内核为每个终止的子进程保存了 一定量的信息（ID 、终止状态、CPU时间总量）。
+* 父进程可以通过wait或waitpid获取终止子进程的信息，之后内核释放其相关资源。
+* 如果无法被父进程善后处理的进程就成为了僵尸进程。
+
+
+
+### 8.6 wait 和 waitpid Function
+
+子进程终止事件是异步进行的，进程正常或者异常终止时，由内核向父进程发生SIGCHLD信号。
+
+父进程可以忽略该信号，或者捕获该信号进行其他函数调用。调用wait 或者 waitpid或出现：
+
+* 如果其所有子进程都还在运行，则阻塞。
+* 如果一个子进程已终止，正等待父进程获取其终止状态，则取得该子进程的终止状态立刻返回。
+* 如果没有任何子进程，则立刻出错返回。
+
+所以如果随意使用wait，则会导致进程阻塞。f't
+
+```c
+#include<sys/wait.h>
+pid_t wait(int *statloc);
+pid_t waitpid(pid_t pid, int statloc, int options);
+//    成功返回进程ID，0，出错返回-1
+```
+
+* 子进程的退出终止状态存储在参数指针statloc指向的区域，字节的某些部分用来存储正常退出的exit status，另一部分用于存储非正常退出的信号数字，一个bit位用于存贮是否生成核心文件。
+* 四种设置在头文件<sys/wait.h>中的宏定义用来获取终止状态
+
+| Macro                | Description |
+| -------------------- | ----------- |
+| WIFEXITED(status)    |             |
+| WIFSIGNALED(status)  |             |
+| WFSTOPPED(status)    |             |
+| WIFCONTINUED(status) |             |
+
+
+
+### 8.7 waitid Function
+
+waitid函数类似与waitpid，且使用起来更加灵活
+
+```c
+#include<sys/wait.h>
+int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
+//return 0 if ok,-1 on error
+```
+
+
+
+### 8.8 wait3 and wait4 Functions
+
+提供了额外的参数用于存储被中断进程及其所有子进程所使用的资源的摘要。
+
+```c
+#include<sys/types.h>
+#include<sys/wait.h>
+#include<sys/time.h>
+#include<sys/resource.h>
+pid_t wait3(int *statloc, int options, struct rusage *rusage);
+pid_t wait4(pid_t pid, int *statloc, int options, struct rusage *rusage);
+//return pid if ok,or -1 on error
+```
+
+
+
+### 8.9 Race Conditions
+
+* 无法预期fork之后，哪个进程会先开始运行（即使知道哪个进程会先运行，在该进程开始运行之后会发生什么，也取决于系统负载和内核的调度算法）
+
+
+
+### 8.10 exec Function
+
+* 执行exec函数时，该进程执行的程序完全替换成新程序，而新程序则从其用一个全新的程序替换了当前进程的正文、数据、堆、堆栈。
+
+  exec后，进程ID未变。且新程序从调用进程继承了下列属性：
+
+  * 进程ID  和 父进程ID
+  * 实际用户ID 和 实际组ID（real user ID 和 real group ID）
+  * 附属组ID
+  * 进程组ID
+  * 会话ID
+  * 控制终端
+  * 闹钟剩余时间
+  * 当前工作目录
+  * 根目录
+  * 文件模式创建屏蔽字
+  * 文件锁
+  * 进程信号屏蔽
+  * 未处理信号
+  * 资源限制
+  * nice值
+  * tms_utime、tms_stime、tms_cutime以及tms_cstime值
+
+* 六种exerc函数可供使用。
+
+```c
+#include<unist.h>
+int execl(const char *pathname, const char *arg0,/* char *arg1,..., (char *)0 */);
+
+int execv(const char *pathname, char *const argv[]);
+
+int execle(const char *pathname, const char *arg0,/* char *arg1,..., (char *)0 */, char *const envp[]);
+
+int execve(const char *pathname, char *const argv[], char *const envp[]);
+
+。int execlp(const char *filename, const char *arg0,/* char *arg1,..., (char *)0 */);
+
+int execvp(const char *filename, char *const argv[]); 
+
+int fexecve(int fd, char *const argv[], char *const envp[]);
+```
+
+
+* 如果filename中包含 / ，就将其视为路径名；
+* 否则就按PATH环境变量，在指定的各目录中搜索可执行文件
+
+![exec族函数关系](../jpg/exec%E6%97%8F%E5%87%BD%E6%95%B0%E5%85%B3%E7%B3%BB.png)
+
+
+
+
+
+
+
+
+_testinterp.exe_
+```c
+  #include<stdio.h>
+  #include<stdlib.h>
+  int main(int argc, char *argv[])
+  {   
+      int i;
+      char **ptr; 
+      extern char **environ;
+      for(i = 0; i < argc; i++)
+          printf("argv[%d]: %s\n",i,argv[i]);
+ /*
+      for(ptr = environ; *ptr != 0; ptr++)
+          printf("%s\n",*ptr);
+ */
+      exit(0);
+  
+ }
+```
+_从该程序启动_
+```c
+ #include<stdio.h>
+ #include<sys/wait.h>
+ #include<unistd.h>
+ #include<stdlib.h>
+ char *env_init[] = {"USER=unknow","PATH=/home/ubuntu2004/test",NULL}    ;
+ 
+ 
+ int main(void){
+     pid_t pid;
+     if((pid = fork())<0){
+        printf("fork error");
+    }
+     else if(pid == 0){
+ /*  
+        if(execl("/home/ubuntu2004/test/testinterp","echoall","only     1 arg",(char *)0)<0)
+            printf("execl error");
+ */
+        if(execle("testinterp","echoall","only 1 arg",(char *)0,env_    init)<0)
+        printf("execle error");
+   }
+   exit(0);
+
+}
+
+```
+
+
+
+### 8.12 Interperter file
+
+
+
+### 8.13 system Function
+
+system函数对系统的依赖性较强。可以直接在程序中执行命令行语句。
+
+```c
+#include<>stdlib.h>
+int system(const char *cmdstring);
+```
+
+* 传入一个空指针，若支持命令行语句返回非零值。
+* fork失败或者waitpid返回eintr之外的错误，返回-1，设置errno。
+* 如果exec失败（不能执行shell），则其返回值如同shell执行了exit（127）。
+* 如果所有函数（fork、exec、waitpid）都成功，那么system的返回值是shell的终止状态。
+
+
+
+### 8.14 Process Accounting
+
+
+
+### 8.15 User Identification
+
+* 通过getpwuid函数获取运行该程序的用户的登录名字
+* 系统会跟踪我们登录的名字，通过getlogin函数提供获取该登录名的方法
+
+```c
+#include<unistd.h>
+char *getlogin(void);
+```
+
+* 如果进程没有附加到用户登录的终端上，此功能可能会失效
+
+
+
+### 8.16 Process Scheduling
+
+* 通过调整nice值以选择更低的优先级运行，返回在0~（2*NZERO）-·之间。
+* NZERO是系统默认的nice值
+
+```c
+#include<unistd.h>
+
+int nice(int incr);
+
+//成功返回新的nice值，出错返回-1
+```
+
+incr参数会增加到调用进程的nice值上，如果incr太大/太小，系统（没有提示）自动降到合法值上。
+
+由于返回值可以为-1，所以出入出错则需要通过判断errno来去欸的那个，在调用钱需要确定errno的值。
+
+
+
+* getpriority函数可以像nice函数一样来获取nice，也可以获得一组相关进程的nice值
+
+```c
+#include<sys/resource.h>
+int getpriority(int which, id_t who);
+//成功返回0，出错返回-1
+```
+
+* which的参数可取以下值：
+
+  * PRIO_PROCESS    进程
+  * PRIO_PGRP          进程组
+    * who == 0，返回优先级最高的		
+  * PRIO_USER          用户ID
+    * who == 0，返回进程的实际用户ID
+
+* setpriority函数可用于设置优先级
+
+```c
+#include<sys/resource.h>
+int setpriority(int which, id_t who, int value);
+//成功返回0，错误返回-1
+```
+
+* 参数说明同上
+
+
+
+### 8.17 Process Time
+
+可以度量3个时间：时钟时间、用户CPU时间和系统CPU时间。
+
+```c
+#include<sys/times.h>
+clock_t times(struct tms *buf);
+```
+
+buf指向的tms结构，结构定义如下：
+
+```c
+struct tms{
+    clock_t tms_utime; //user cpu time
+    clock_t tms_stime; //system cpu time
+    clock_t tms_cutime;//user cpu time，terminated children
+    clock_t tms_cstime;//system cpu time，terminated children
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # 9.0  进程关系
 
 # 10.0  信号
+
+### 10.3 Function signal
+
+```c
+#include<signal.h>
+void (*signal(int signo, void (*func)(int)))(int);
+```
+
+* 参数:
+  * signo: 信号名
+  * func: 
+    * 函数指针:指向一个参数为整型的无返回值函数,收到该信号后执行的函数,也可以称为信号处理函数
+    * SIG_IGN: 向内核表示忽略此信号
+    * SIG_DFL: 像内核表示执行系统默认操作                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+    * 
+* 返回值:
+  * 返回一个函数指针,指向一个参数为整型的无返回值函数,返回值指向的函数指向一个信号处理函数
+
+
+
+### 10.4 Unreliable Signals
+
+
+
+### 10.5 Interrupted System Calls
+
+### 10.6 Reentrant Functions
+
+* 可重入函数
+
+### 10.7 SIGCLD Semantics
+
+* 子进程状态改变后产生此信号，父进程需要调用一个wait函数以确定发生了什么。
+  * 如果进程将该信号的配置设置为SIG_IGN，则调用进程将不产生僵死信号。如果调用该进程后随即调用wait，将阻塞直至所有进程终止，然后wait返回-1，并将errno设置为ECHILD
+  * 如果将SIGCLD的配置设置为捕捉，内核检测是否有子进程是否准备好被等待，如果是这样，则调用SIGCLD处理程序。
+
+### 10.8 Reliable-Signal Terminology and Semantics
+
+* 事件可以引发信号
+  * 硬件异常（除以0）
+  * 软件条件（alarm计时器超时）
+  * 终端产生的信号或调用kill函数
+* 信号在产生和递送之间的时间间隔，信号是未决的
+* 
+
+
+
+
+
+### 10.9 kill and raise Functions
+
+> **通过系统调用`kill()`将一个信号传递给另一个进程**
+
+```c
+#include<signal.h>
+int kill(pid_t pid, int signo);
+int raise(int signo);
+```
+
+* 调用 `raise(signo)` 等价于 `raise(int signo)`
+* pid
+  * 大于0，会将信号发送给指定`pid`的进程
+  * 等于0，发送信号给与调用进程同组的每个进程，包括调用进程自身。
+  * 小于-1，那么会向组内ID等于该`pid`绝对值的进程组内所有下属进程发送信号
+  * 等于-1，发送返回时，调用进程有权将信号发往的每个目标进程，出去init和调用进程自身。
+* 如果无进程与指定`pid`匹配，那么`kill()`调用失败，会将`errno`设置为`ESRCH`
+* 进程发送信号给另一个进程需要适当的权限
+  * 特权级（CAP_KILL）进程可以向任何进程发送信号。
+  * 以root用户和组运行的init进程（pid=1），仅能接受已安装了处理器函数的信号。（可以防止系统管理员以外杀死init进程）
+  * 非特权进程可以想任意进程执行SIGCONT信号，以重启已停止的作业（进程组）![权限](../jpg/%E6%9D%83%E9%99%90.PNG)
+* 如果`kill()`无权发送信号对应的pid进程，那么`kill()`将调用失败，且将errno置为EPERM。pid若为一系列进程时（进程组），只要向其中之一发送信号，则`kill()`调用成功。
+
+
+
+> **检查进程存在**
+
+* 向指定pid，将参数sig指定为0发送。
+  * pid不存在，进程不存在
+  * pid存在，进程为僵尸进程
+  * pid存在，但该pid已经被其他进程利用
+
+
+
+> raise()
+
+* 当进程使用该函数向自身发送信号时，信号将立即传递（在raise返回之前）。
+* 唯一出错的可能是发生EINVAL， sig无效。
+
+### 10.11 alarm and pause Functions
+
+* 使用alarm函数以设置一个计时器，在将来某个指定时间该计时器会超时。超时时，产生SIGALRM信号，如果不忽略或者不捕捉该信号，默认东子是终止调用该alarm函数的进程。
+
+```c
+#include<unistd.h>
+unsigned int alarm(unsigned int seconds);
+```
+
+
+
+* pause函数使调用进程挂起直至捕捉到一个信号、
+
+  ```c
+  #include<unistd.h>
+  int pause(void);
+  //返回-1，并将errno设置为EINTR
+  ```
+  
+* 只有执行了一个信号处理程序从其返回时，pause才返回。在这候着那个情况下，pause返回-1，并将errno设置为EINTR。
+
+
+
+* alarm配合pause使用，进程可以时自己休眠一段指定的时间，然后存在一些问题
+
+```c
+#include<signal.h>
+#include<unistd.h>
+static void sig_alrm(int signo)
+{
+    /*nothing to do, just return to wake up the pause*/
+}
+unsigned int sleep1(unsigned int nsecs)
+{
+    if(signal(SIGALRM, sig_alrm) == SIG_ERR)
+        return(nsecs);
+    alarm(nsecs);
+    pause();
+    return (alarm(0));
+}
+```
+
+* 问题
+  * 调用sleep1之前，调用者处于某种目的已设置了闹钟，则它会被sleep1中的alarm函数重写时钟，如果上次时钟超时时间大于本次设定，则需要在返回时复位预先设定的闹钟。如果小于，则只能等待上次闹钟超时。（这样不会造成某种意外，原先的闹钟产生的操作被忽略）
+  * 修改了对SIGALRM的配置
+
+
+
+### 10.12 Signal Sets
+### 10.13 sigprocmask Function
+### 10.14 sigpending Fuction
+### 10.15 sigaction Function
+### 10.16 sigsetjmp and siglong
+### 10.17 sigsuspend Function
+### 10.18 abort Function
+### 10.19 sleep, nanosleep, and clock_nanosleep Functions
+### 10.20 sigqueue Function
+### 10.21 Job-Control Signals
+### 10.22 Signal Names and Numbers
+### 10.23 Summary
+
+
+
+
+
+
+
+
 
 # 11.0  线程
 
@@ -663,7 +1283,7 @@ void free(void *ptr);
 
 # 14.0  高级I/O
 
-# 15.0  进程间的通信
+# 15.0  进程间的通信 
 
 # 17.0  高级进程间通信
 
