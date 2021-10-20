@@ -1,8 +1,8 @@
-git clone
+---
+typora-root-url: ..\jpg
+---
 
-git add
+![](../jpg/20182-git-q.png)
 
-git commit -m ”   “
 
-git push
 
