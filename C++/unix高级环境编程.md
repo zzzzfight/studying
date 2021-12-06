@@ -1,3 +1,5 @@
+
+
 # UNIX高级环境编程（APUE）
 
 
@@ -303,7 +305,7 @@ int dup2(int fd, int fd2);
 
 ### 3.14 fcntl Function
 
-fcntl 函数可以改变已打开文件的文件属性
+fcntl 函数可以改变已打开文件的文件属性，对文件描述符进行操作。
 
 ```c++
 #include<fcntl.h>
@@ -317,7 +319,45 @@ int fcntl(int df, int cmd, .../*int arg */);
 * 获取/设置异步I/O所有权（cmd=F_GETOWN or F_SETOWN）
 * 获取/设置记录锁（cmd=F_GETLK,F_SETLKW）
 
-F_
+
+
+## 4.0 File and Dirtory
+
+### 4.2 stat、fstat、fstatat、lstat
+
+```c
+#include<sys/stat.h>
+int stat(const char* restrict pathname, struct stat *restrict buf);
+int stat(int fd, struct stat *buf);
+int stat(const char* restrict pathname, struct stat *restrict buf);
+int fstatat(int fd, const char* restrict pathname, struct stat *restrict buf, int flag);
+```
+
+* pathname
+  * stat函数：返回与此命名文件有关的信息结构。
+  * fstat函数：获得已在描述符fd上打开文件的有关信息。
+  * lstat函数：类似stat，但是当命名的文件是一个符号链接，返回符号链接有关的信息。
+  * fstatat函数：相对于当前打开目录（fd参数指向）的路径返回文件统计信息。
+
+* buf获取信息
+
+```c
+struct stat{
+    mode_t	st_mode;
+    ino_t			st_ino;
+    dev_t			st_dev;
+    dev_t			st_rdev;
+    nlink_t			st_nlink;
+    uid_t			st_uid;
+    gid_t			st_gid;
+    off_t			st_size;
+    struct timespec	st_atime;
+    struct timespec	st_mtime;
+    struct timespec	st_ctime;
+    blksize_t		st_blksize;
+    blkcnt_t		st_blocks;
+}
+```
 
 
 
@@ -363,6 +403,8 @@ F_
 
 这些流已被预定义且由可以由进程自动获取
 
+这三个文件描述符stdin、stdout和stderr加以引用
+
 
 
 ### 5.4 Buffering
@@ -372,6 +414,8 @@ F_
 1. 全缓冲。在这种情况下，**当标准I/O缓冲已满时，所使用的缓冲区通常为在流上执行I/O时，有调用malloc的一个标准I/O函数获得的。**
 
    术语flush 描述了标准I/O缓冲区的写入。缓冲区有标准I/O例程自动刷新，或者可以调用fflush 函数来刷新流。flush在unix环境中两个用途，一是写出缓冲区的内容，二是丢弃存在缓冲区中的数据。
+
+   **对于驻留在磁盘上的文件是由标准I/O库实施全缓冲的。**注意fflush的使用。
 
 2. 行缓冲。
 
@@ -387,7 +431,7 @@ F_
 
   * 标准错误非缓冲
   * 当流打开一个终端设备时，流是行缓冲的；否则就是全缓冲的。
-    * 标准错误无缓冲；打开终端设备的标准输入输出流行缓冲；其他标准输入输出流全缓冲。
+    * 标准错误无缓冲；**打开终端设备的标准输入输出流行缓冲；其他标准输入输出流全缓冲。**所以注意fflush的使用
 
 可以通过setbuf 函数或者setvbuf 函数设置缓冲
 
@@ -430,7 +474,7 @@ int  setvbuf(FILE *restrict fp, char *restrict buf, int mode, size_t size);
 
   特例：fp为NULL时，fflush 使所有输出流被刷新
 
-  
+   
 
 ### 5.5 Opening a Stream
 
@@ -493,13 +537,13 @@ FILE *fdopen(int fd, const char *type);
 | r or rb          | 打开一个文件                            |               |
 | w or wb          | 缩短文件长度至0 或者 创建一个文件来写入 |               |
 | a or ab          | 扩展；打开一个文件是                    |               |
-| r+ or r+b or rb+ |                                         |               |
-| w+ or w+b or wb+ |                                         |               |
-| a+ or a+b or ab+ |                                         |               |
+| r+ or r+b or rb+ | 为读和写打开                            |               |
+| w+ or w+b or wb+ | 把文件截断至0。或为读和写打开           |               |
+| a+ or a+b or ab+ | 为在文件尾读和写而打开和创建            |               |
 
 
 
-
+**除非流引用的是终端设备，否则按系统默认情况，流被打开时是全缓冲。若流引用终端设备，则该流是行缓冲的。**
 
 
 
@@ -700,7 +744,36 @@ void free(void *ptr);
 
 ### 7.9 Environment Variables
 
+
+环境字符串显示为：name=value
+
+```c
+#include<stdlib.h>
+char *getenv(const char *name);
+//返回值：指向与name关联的value的指针；否则返回NULL
+```
+
+```c
+#include<stdlib.h>
+int putenv(char *str);
+int setenv(const char *name, const char *value, int rewrite);
+int unsetenv(const char *name);
+```
+
+* putenv取形式为name=value的字符串，将其放到环境表中。如果name已经存在，则先删除原来的定义。
+* setenv将name设置为value。如果name已经存在，如果rewrite非0，则删除定义，如果rewrite为0，则不删除定义，也不出错。
+* unsetenv删除name的定义。即使不存在该定义也不出错。
+
+ 
+
 ### 7.10 setjmp and longjmp Functions
+
+
+
+
+
+
+
 
 ### 7.11 getrlimit and setrlimit Functions
 
@@ -1121,6 +1194,12 @@ struct tms{
 
 # 10.0  信号
 
+* 信号的两个状态
+  * 递达：进程接收信号，转而执行某种粗粒操作。
+  * 未决：信号产生到递达的中间状态
+* 阻塞：信号一旦阻塞就不会递达，此时信号处于未决状态，直至解除阻塞。
+* 信号实现进程控制，进程之间的通讯。
+
 ### 10.3 Function signal
 
 ```c
@@ -1142,8 +1221,6 @@ void (*signal(int signo, void (*func)(int)))(int);
 
 ### 10.4 Unreliable Signals
 
-
-
 ### 10.5 Interrupted System Calls
 
 ### 10.6 Reentrant Functions
@@ -1163,7 +1240,7 @@ void (*signal(int signo, void (*func)(int)))(int);
   * 软件条件（alarm计时器超时）
   * 终端产生的信号或调用kill函数
 * 信号在产生和递送之间的时间间隔，信号是未决的
-* 
+* 多次传递阻塞信号时，大部分系统不会对信号进行排队。无论阻塞期间每个信号传递多少次，在解除阻塞后，每个信号只会传递一次。
 
 
 
@@ -1205,10 +1282,10 @@ int raise(int signo);
 
 > raise()
 
-* 当进程使用该函数向自身发送信号时，信号将立即传递（在raise返回之前）。
+* **当进程使用该函数向自身发送信号时，信号将立即传递（在raise返回之前，意味着先对信号信号进程处理）。**
 * 唯一出错的可能是发生EINVAL， sig无效。
 
-### 10.11 alarm and pause Functions
+### 10.10 alarm and pause Functions
 
 * 使用alarm函数以设置一个计时器，在将来某个指定时间该计时器会超时。超时时，产生SIGALRM信号，如果不忽略或者不捕捉该信号，默认东子是终止调用该alarm函数的进程。
 
@@ -1252,22 +1329,228 @@ unsigned int sleep1(unsigned int nsecs)
 
 * 问题
   * 调用sleep1之前，调用者处于某种目的已设置了闹钟，则它会被sleep1中的alarm函数重写时钟，如果上次时钟超时时间大于本次设定，则需要在返回时复位预先设定的闹钟。如果小于，则只能等待上次闹钟超时。（这样不会造成某种意外，原先的闹钟产生的操作被忽略）
-  * 修改了对SIGALRM的配置
+  * 修改了对SIGALRM的配置，导致之前的信号处理函数失效，需要调用前保存signal的返回值
+  * pause和signal存在竞争关系，导致如果先进行信号处理，然后调用pause，进程会永远挂起。
 
 
 
-### 10.12 Signal Sets
-### 10.13 sigprocmask Function
-### 10.14 sigpending Fuction
-### 10.15 sigaction Function
-### 10.16 sigsetjmp and siglong
-### 10.17 sigsuspend Function
-### 10.18 abort Function
+### 10.11 Signal Sets
+
+> 信号集处理函数
+
+```c
+#include<signal.h>
+int sigemptyset(sigset_t *set);
+int sigfillset(sigset_t *set);
+int sigaddset(sigset_t *set, int signo);
+int sigdelset(sigset_t *set, int signo);
+//成功返回0，出错返回-1
+int sigsimember(const sigset_t *set, int signo);
+//真返回1，假返回0
+```
+
+### 10.12 sigprocmask Function
+
+* 调用函数sigprocmask可以检测或更改，或同时检测更改进程的信号屏蔽字。
+
+```c
+#include<signal.h>
+int sigprocmask(int how, const sigset_t *restrict oset);
+```
+
+* 参数how
+  * SIG_BLOCK 				该进程新的信号屏蔽字是当前信号屏蔽字和set指向信号集的并集	
+  * SIG_UNBLOCK           该进程新的信号屏蔽字是当前信号屏蔽字和set指向信号集的补集的交集（人话是将set指向的信号集中的信号从信号屏蔽字中删除）		
+  * SIG_SETMASK            该进程心的信号屏蔽字是set指向的值
+
+* oset用于保存之前的信号屏蔽集
+
+
+
+### 10.13 sigpending Fuction
+
+```c
+#include<signal.h>
+int sigpending(sigset_t *set);
+//返回值：成功返回0，失败返回-1
+```
+
+* 对调用进程而言，其中的各信号是阻塞不能传递的，因而信号是未决的。
+
+
+
+### 10.14 sigaction Function
+
+* 允许我们测试或者修改与特定信号相关的行为。
+
+```c
+#include<signal.h>
+int sigaction(int signo, const struct sigaction *restrict act, struct sigaction *restrict oact);
+//返回值：成功，出错-1
+```
+
+* 参数signo是要检测或者修改其动作的信号编号。。
+* act指针非空，则修改其动作。
+* oact指针非空，则有oact指针返回该信号的上一个动作。
+
+```c
+struct sigaction{
+    void (*sa_handler)(int);
+    sigset_t sa_mask;
+    int sa_flags;
+    void (*sa_sigaction)(int, siginfo_t *, void *tg)
+    
+}
+```
+
+* 只有sa_handler字段对应于signal()的handler参数。其所指定的值为信号处理函数的地址，或者是常量SIG_IGN、SIG_DFL之一。
+
+* 仅当sa_handler的取值是信号处理函数时，才会对sa_mask和sa_flags字段加以处理。
+
+  * sa_mask指定一组信号集，引发信号处理函数调用会自动将其加入到进程屏蔽集中，在信号处理函数返回时自动删除。
+  * sa_flags是一个位掩码。指定用于控制信号处理过程中的各种选项。
+
+* sa_sigaction不适用于应用程序。该字段是一个代替的信号处理程序，sa_sigaction和sa_handler字段只能使用其中一个。
+
+  * 通常按如下方式调用信号处理程序
+
+    `void handler(int signo);`
+
+  * 当sa_flags中设置了SA_SIGINFO标志时，按照下列方式调用信号处理程序
+
+    `void handler(int signo, siginfo_t *info, void *context);`
+
+    siginfo_t结构包含了信号产生原因有关的信息。
+
+    
+
+### 10.15 sigsetjmp and siglongjmp
+
+```C
+#include<setjmp.h>
+int sigsetjmp(sigjmp_buf。 env, int savemask);
+//直接调用红返回0，从siglongjmp返回非0值。
+void siglongjmp(sigjmp_buf env, int val);
+```
+
+* savemask非0，则sigsetjmp中保存进程的当前信号屏蔽字，当siglongjmp调用返回时，信号屏蔽字会从env中恢复。
+
+
+
+### 10.16 sigsuspend Function
+
+```c
+#include<signal.h>
+int sigsuspend(const sigset_t *sigmask);
+```
+
+* 将进程的屏蔽信号字设置为sigmask指向的信号集。
+* 在捕捉到一个信号或者发生一个会终止该进程信号之前，该进程会挂起。
+* 如果捕捉到一个信号且从信号处理程序返回，则sigsuspend返回，并且信号屏蔽字还原。
+
+* 某些信号已经被屏蔽后，想通过该信号以实现唤醒进程，可以使用该函数（类似 pause，但是由于该信号已被屏蔽，或者解除屏蔽后立即递达，导致进程永远阻塞）。
+
+* sigsuspend()，可以通过sigmask设定在该函数调用期间进程的信号屏蔽集，之后进程挂起，直至某个信号递达，sigsuspend()返回，然后信号屏蔽集复原。
+* 利用该函数可以实现父子进程间的同步。
+
+```c
+   #include"tool1.h"
+   
+   
+   static void sig_int(int signo){
+       printf("something happend\n");   
+   }   
+   
+   
+  int main(){
+      if(signal(SIGINT,sig_int));
+      
+      sigset_t newmask,oldmask;
+  
+      sigemptyset(&newmask);
+      //sigemptyset(&oldmask);
+      
+      sigaddset(&newmask,SIGINT);
+      if(sigprocmask(SIG_BLOCK, &newmask, &oldmask))
+          printf("err\n");
+         
+      for(int i=0;i<5;i++){
+          printf("%d\n",i);
+          sleep(1);
+      }
+  
+      sigsuspend(&oldmask);
+  
+      for(int i=0;i<5;i++){
+          printf("%d\n",i);
+          sleep(1);
+      }
+      exit(0);
+  
+  }
+```
+
+
+
+### 10.17 abort Function
+
+* 使异常程序终止
+
+```c
+#include<stdlib.h>
+void abort(void);
+```
+
+将SIGBRT信号发送给调用进程。调用abort将向主机环境传递一个未成功终止的通知，其方法是调用**raise(SIGABRT)**函数，这也意味着，在abort()中先传递了信号，进行处理，之后才会继续执行abort()，然后返回。
+
+无论如何abort()都将终止程序，（除非进行了非本地跳转退出信号处理函数），因为在处理信号后，abort(),将对SIGABRT的处理操作重置为默认，然后再度发出一次SIGABRT信号，最后退出。
+
+abort()会对所有打开的流执行fflush操作（实现执行fflush）。只有进行了信号处理函数，且在信号处理函数中通过_exit 或者 _Exit退出程序，才能取消fflush（然而内核会丢弃）。在从信号处理函数返回后，abort会调用fflush()。
+
+实现代码：
+
+```c
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+void
+abort(void)
+{
+    sigset_t
+    struct sigaction    action;
+    /* Caller can’t ignore SIGABRT, if so reset to default */
+    sigaction(SIGABRT, NULL, &action);
+    if (action.sa_handler == SIG_IGN) {
+        action.sa_handler = SIG_DFL;
+        sigaction(SIGABRT, &action, NULL);
+    }
+    if (action.sa_handler == SIG_DFL)
+        fflush(NULL);           /* flush all open stdio streams */
+    /* Caller can’t block SIGABRT; make sure it’s unblocked */
+    sigfillset(&mask);
+    sigdelset(&mask, SIGABRT);  /* mask has only SIGABRT turned off */
+    sigprocmask(SIG_SETMASK, &mask, NULL);
+    kill(getpid(), SIGABRT);    /* send the signal */
+    /* If we’re here, process caught SIGABRT and returned */
+    fflush(NULL);               /* flush all open stdio streams */
+    action.sa_handler = SIG_DFL;
+    sigaction(SIGABRT, &action, NULL);  /* reset to default */
+    sigprocmask(SIG_SETMASK, &mask, NULL);  /* just in case ... */
+    kill(getpid(), SIGABRT);                /* and one more time */
+    exit(1);    /* this should never be executed ... */
+}
+/* POSIX-style abort() function */
+```
+
+
+
+### 10.18 system Function
+
 ### 10.19 sleep, nanosleep, and clock_nanosleep Functions
 ### 10.20 sigqueue Function
 ### 10.21 Job-Control Signals
 ### 10.22 Signal Names and Numbers
-### 10.23 Summary
 
 
 
@@ -1279,11 +1562,680 @@ unsigned int sleep1(unsigned int nsecs)
 
 # 11.0  线程
 
+### 11.2 线程概念
+
+### 11.3 线程标识
+
+* 线程ID只是在进程上下文中才有意义。
+
+* 该函数比较两个线程ID
+
+  ```c
+  #include<pthread.h>
+  int pthread_equal(pthread_t tid1, pthread tid2);
+  ```
+
+* 该函数获取自身线程ID
+
+  ```c
+  #include<pthread.h>
+  pthread_t pthread_self(void);
+  ```
+
+* 线程创建
+
+  ```c
+  #include<pthread.h>
+  int pthread_create(pthread_t *restrict tidp, 
+                     const pthread_attr_t *restrict attr, 
+                     void *(*start_rtn)(void *), void *restrict arg);
+  ```
+
+  * 当函数成功返回时，新创建线程的线程ID会被设置成tidp指向的内存单元。
+  * attr用于定制各种不同的线程属性。
+  * 新创建的线程从start_rtn函数的地址开始运行，该函数只有一个无类型指针参数arg。
+  * 线程可以访问进程的地址空间，继承调用线程的浮点环境和信号屏蔽字。
+  * 主线程与子线程存在竞争关系
+
+### 11.5 线程终止
+
+* 单个线程可以通过一下三种方式退出。
+
+  * 线程知识从启动例程中返回，返回值是线程的退出码
+  * 线程可以被统一进程中的其他线程取消
+  * 线程调用pthread_exit
+
+  ```c
+  #include<pthread.h>
+  int pthread_join(pthread_t thread, void **rval_ptr);
+  ```
+
+  进程中的其他线程可以通过调用pthread_join函数访问到这个指针
+
+  ```c
+  #include<pthread.h>
+  int pthread_join(pthread_t thread, void **rval_ptr);
+  ```
+
+  调用线程将一直阻塞v知道指定的线程调用pthead_exit\从启动例程中返回或者取消。
+
+  如果线程只是从它的启动例程返回， rval_ptr将包含返回码。如果线程被取消，由rval_ptr指定的内存单元就置为PTHREAD_CANCELED。
+
+  通过pthread_join自动把线程置于分离状态，这样资源就可以恢复。如果线程已处于分离状态，函数调用就会失败，返回EINVAL。
+
+  如果对线程返回值不感兴趣，可以把rval_ptr置为NULL。在这种情况下，调用pthread_join函数将等待指定的线程终止，但并不获取线程终止状态。
+
+  * 通过pthread_cancel函数来请求取消同一进程中的其他线程。
+
+  ```c
+  #include<pthread.h>
+  int pthread_cancel(pthread_t tid);
+  //成功返回0，错误返回错误编号
+  ```
+
+  默认情况下，pthread_cancel 函数会使得由tid表现为如同调用了参数为PTHREAD_CANCELED的pthread_exit函数，但是，线程可以选择忽略取消方式或是控制取消方式。
+
+  * 类似进程退出处理函数，线程也可以安排退出时需要调用的处理函数，称为线程清理处理程序。
+    * 处理顺序依旧类似，记录在栈中，执行顺序与注册顺序相反
+
+  ```c
+  #include<pthread.h>
+  void pthread_cleanup_push(void (*rtn)(void *),void *arg);
+  void pthread_cleanup_pop(int execute);
+  ```
+
+  * 当线程执行一下动作时调用清理函数，参数为arg，清理函数rtn的调用顺序是由pthread_cleanup_push函数安排的
+    * 调用pthread_exit。
+    * 响应取消请求时。
+    * 用非零execute参数调用pthread_cleanup_pop时。
+      * 清除或者调用后清除一个栈顶的清理函数
+  
+  * pthread_cleanup_pop都将删除上次pthread_cleanup_pop都将删除上次pthread_cleanup_push调用建立的清理处理程序。
+  * pthread_cleanup_push 和 pthread_cleanup_pop 成对出现
+  * 由于可以实现为宏，所以必须在与线程相同的作用域中以配对的心是使用
+  
+  ```c
+  #include<pthread.h>
+  int pthread_detach(pthread_t tid);
+  ```
+  
+  * 是函数进入放分离状态。
+
+
+
+### 11.6 线程同步
+
+* 互斥量
+
+```c
+#include<pthread.h>
+int pthread_mutex_init(pthread_mutex_t *restrict mutex, const pthread_mutexattr_t *restrict attr);
+int pthread_mutex_destory(pthread_mutex_t *mutex);
+//成功返回0,否则返回错误编号
+```
+
+互斥量本质上是一把锁,在访问共享资源前对互斥量进行枷锁,在访问完成后释放互斥量上的锁。
+
+互斥变量用pthread_mutex_t数据类型表示，使用前需要初始化，可以把他置为常量PTHREAD_MUTEX_INITIALIZER。也可以通过pthread_mutex_init函数进行初始化。
+
+其他试图对互斥量加锁的线程会被阻塞直至当前线程释放该互斥锁。
+
+多个线程阻塞时，当前互斥量解锁，第一个变成运行状态的线程先加锁。
+
+```c
+#include<pthread.h>
+int pthread_mutex_lock(pthread_mutex_t *mutex);
+int pthread_mutex_trylock(pthread_mutex_t *mutex);
+int pthread_mutex_unlock(pthread_mutex_t *mutex);
+```
+
+通过pthread_mutex_lock对互斥量加锁。已上锁会阻塞线程。
+
+通过pthread_mutex_trylock对互斥量加锁。已上锁不会阻塞，返回EBUSY，成功加锁返回0。
+
+
+
+* 读写锁
+
+拥有更高的并行性
+
+读写锁也叫共享独占锁。使用前需初始化，在释放它们底层的内存前必须销毁
+
+```c
+#include<pthread.h>
+int pthread_rwlock_init(pthread_rwlock_t *restrict rwlock, const pthread_rwlockattr_t *restrict attr);
+int pthread_rwlock_destroy(pthread_rwlock_t *rwlock);
+```
+
+通过pthread_rwlock_init初始化。希望读写锁有默认属性，可以传一个空指针给attr
+
+同互斥量，需要在释放读写锁占用的内存空间前销毁锁。
+
+```c
+#include<pthread.h>
+int pthread_rwlock_rdlock(pthread_rwlock_t *rwlock); //读模式下读写锁的锁定
+int pthread_rwlock_wrlock(pthread_rwlock_t *rwlock); //写模式下读写锁的锁定
+int pthread_rwlock_unlock(pthread_rwlock_t *rwlock); //任意模式解锁
+```
+
+类似互斥量的有条件读写锁原语版本
+
+```c
+#include<pthread.h>
+int pthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock);
+int pthread_rwlock_tryrwlock(pthread_rwlock_t *rwlock);
+```
+
+可以获取锁时，函数返回0；否则返回EBUSY。
+
+
+
+* 条件变量
+
+锁的数据类型为pthread_cond_t
+
+可以将锁用PTHREAD_COND_INITALIZER初始化
+
+通过如下函数初始化和销毁
+
+```c
+#include<pthread.h>
+int pthread_cond_init(pthread_cond_t *restrict cond, pthread_condattr_t *restrict attr);
+int pthread_cond_destroy(pthread_cond_t *cond);
+```
+
+使用pthread_cond_wait等待条件变量为真，如果在给定时间不等满足，则会返回一个代表出错码的返回变量。
+
+```c
+#include<pthread.h>
+int pthread_cond_wait(pthread_cond_t *restrcit cond, pthread_mutex_t *restrict mutex);
+int pthread_cond_timedwait(pthread_cond_t *restrict cond, pthread_mutex_t *restrict mutex, const struct timespec *restrict timeout);
+```
+
+函数的作用：
+
+1. 将该线程阻塞直至接受一个条件改变的通知。
+2. 释放已占用的互斥量mutex。
+3. 条件改变后解除阻塞，给互斥量mutex加锁。
+
+第一步和第二步是原子操作，第三步会阻塞直至成功加锁。
+
+通过以下函数通知信号该线程条件已满足。
+
+```c
+#include<pthread.h>
+int pthread_cond_signal(pthread_cond_t *cond);
+int pthread_cond_broadcast(pthread_cond_t *cond);
+```
+
+
+
+* 自旋锁
+
+* 屏障
+
+协调多个线程同步，在允许所有线程继续允许前，必须达到屏障的线程数目。
+
+初始化和销毁
+
+```c
+#include<pthread.h>
+int pthread_barrier_init(pthread_barrier_t *restrict barrier, 
+                         const pthread_barrierattr_t *restrict attr, 
+                         unsigned int count);
+int pthread_barrier_destroy(pthread_barrier_t *barrier);
+```
+
+可以使用pthread_barrier_wait函数表明，线程已完成工作，准备等所有其他线程赶上来。
+
+```c
+#include<pthread.h>
+int pthread_barrier_wait(pthread_barrier_t *barrier);
+```
+
+调用`pthread_barrier_wait`的线程在屏障计数为满足条件时，会进入休眠状态。
+
+如果该线程是最后一个调用`pthread_barrier_wait`的线程，满足了屏障计数，则会唤醒所有线程。
+
+对于任意线程，`pthread_barrier_wait`函数返回了`PTHREAD_BARRIER_SERIAL_THREAD`。剩下的所有线程看到的返回值是0.
+
+这使得一个线程可以作为主线程，它可以工作在其他所有线程已完成工作结果上。
+
+除非在调用了`pthread_barrier_destroy`后又调用了`pthread_barrier_init`进行初始化，否则计数不变。
+
+
+
+
+
+
+
 # 12.0  线程控制
+
+
+
+
 
 # 14.0  高级I/O
 
+### 14.2 非阻塞I/O
+
+### 14.3 记录锁
+
+当一个进程正在读或者修改一个文件时，它可以阻止其他进程修改同一个文件区域。
+
+* fcntl记录锁
+
+```c
+#include<fcntl.h>
+int fcntl(int filedes, int cmd,.../*struct flock *flockptr*/);
+```
+
+对于记录锁，cmd是F_GETLK、F_SETLK或者F_SETLKW。第三个参数是一个指向flock结构的指针：
+
+```c
+struct flock{
+    short l_type;
+    off_t l_start;
+    short l_whence;
+    off_t l_len;
+    pid_t l_pid;
+}
+```
+
+* F_RDLCK（共享读锁）、F_WRLCK（独占写锁）、F_UNLCK（解锁）
+
+* 加锁或者解锁的区域有l_start和l_whence两者决定
+* 区域的字节长度由l_len表示
+* 具有能阻塞当前进程的锁，其特有进程ID存放在l_pid中（仅由F_GETLK返回）
+* l_len为0，则表示从起点开始锁至最大偏移位置
+
+![IMG_0027(20211026-112303)](../jpg/IMG_0027(20211026-112303).PNG)
+* 文件对给定字节区间上锁规则：
+	* 文件给定字节区间，多个进程可以有一把共享读锁，即允许多个进程以读模式访问该字节区；
+	* 文件给定字节区间，只能有一个进程有一把独占写锁，即只允许有一个进程已写模式访问该字节区；
+	* 文件给定字节区间，如果有一把或多把读锁，不能在该字节区再加写锁，同样，如果有一把写锁，不能再该字节区再加任何读写锁。
+  * 文件给定字节区间，单个进程只能同时拥有一把锁，**重复请求锁，前锁会替换旧锁。**
+  
+* 进程必须以相应权限打开文件描述符
+
+* 死锁
+  * 两个进程互相等待对方持有而且锁定的资源时，这两个进程就处于死锁状态
+
+
+
+### 14.4 STREAMS（过时）
+
+### 14.4 I/O 复用
+
+* select
+
+  * 参数告诉内核：关注的描述符、对于每个描述符我们所关注的条件（读/写/异常）、愿意等待的时间。
+  * select返回时，内核告诉我们：已准备好的描述符总量、读\写\异常三个条件中哪一些准备好了。
+
+  ```c
+  #include<sys/select.h>
+  int select(int maxfdpl, fd_set *restrict readfds, 
+             fd_set *restrict writefds, fd_set *restrict exceptfds,
+             struct timeval *restrict tvptr);
+  ```
+
+  * tvptr 指定愿意等待的时间长长度。
+
+    * `tvptr == NULL`
+
+      永远等待。如果捕捉到一个信号则中断，否则无限期等待。**当指定的描述符中的一个已准备好或者捕捉到一个信号则返回。** 如果捕捉到一个信号，则`select`返回-1， `errno`设置为EINTR。
+
+    * `tvptr->tv_sec == 0 && tvptr->tv_usec == 0`
+
+      根本不等待，测试所有指定的描述符并立刻返回。**单次轮询返回多个就绪文件描述符而不阻塞。**
+
+    * `tvptr->tv_sec != 0 || tvptr->t_usec != 0`
+
+      等待指定描述和微秒数。
+
+   ```C
+   #include<sys/select.h>
+   int FD_ISSET(int fd, fd_set *fdset);
+   void FD_CLR(int fd, fd_set *fdset);
+   void FD_SET(INT fd, fd_set *fdset);
+   void FD_ZERO(fd_set *fdset);
+   ```
+
+  `fd_set`数据类型是一个是一个文件字符集的数据类型，存储了可读、可写、或处于异常条件的描述符集合。对这种数据类型，仅可以分配一个变量，将这种变量值赋给同类型比那辆吗，对其进行以上四种函数操作。
+
+  
+
+* poll
+
+  ```c
+  #include<poll.h>
+  int poll(struct pollfd fds[], nfds_t nfds, int timeout);
+  ```
+
+  * 结构体数组fds
+	```c
+    struct pollfd
+    {
+        int 		fd;
+        short 	envents;
+        short		revents;
+    }
+	```
+	
+* `fd`为目标文件描述符，events来指定需要检查的时间。`poll()`返回时，revents被设定为该文件描述符上实际发送的时间。
+
+![2F85788B3F4DD71DE2A555FC5D378C47](../jpg/2F85788B3F4DD71DE2A555FC5D378C47.png)
+
+* 如果对某个特定文件描述符不感兴趣，可以将events设置为0。
+
+* 将fd设为相反数（负数），将导致对应的events字段被忽略，且revents字段将总返回0。
+
+  以上两个方法用来关闭对单个文件描述符的检查。
+
+* timeout参数
+  * `timeout == -1`，一直阻塞，知道fds数组中列出的文件描述符有一个达到就绪态或者捕获一个信号。
+  * `timeout == 0`，**不会阻塞，单次轮询，返回多个就绪文件描述符状态。**
+  * `timeout > 0`，至多阻塞timeout毫秒，知道fds列出的文件描述符中有一个达到就绪态，或者捕获一个信号。
+
+
+
+
+
+
+
+### 14.6 readv Function and writev Function
+
+用于在一次函数调用中读、写多个非连续缓冲区。
+
+```c
+#include<sys/uio.h>
+ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
+ssize_t writev(int fd, const struct iovec *iov, int lovcnt);
+```
+
+iovec结构体数组
+
+```c
+struct iovec{
+    void *iov_base;
+    size_t iov_len;
+}
+```
+
+iov数组中元素数有iovcnt指定，其最大值受限于`IOV_MAX`。
+
+
+
+### 14.7 readn Function and writen Funtion
+
+```c
+//多次read
+ssize_t readn(int fd, void *ptr, size_t n)
+{
+	size_t nleft;
+	ssize_t nread;
+	
+	nleft = n;
+	while(nleft > 0)
+	{
+		if((nread = read(fd, ptr, nleft)) < 0){
+			if(nletf == n)
+				return(-1);
+			else
+				break;
+		}else if(nread == 0)
+			break;
+		nleft -= nread;
+		ptr +=nread;
+	}
+	return(n - nleft);
+}
+//多次write
+ssize_t writen(int fd, void *ptr, size_t n)
+{
+	size_t nleft = n;
+	ssize_t nwrite;
+
+	while(nleft > 0)
+	{
+		if((nwrite = write(fd, ptr, nleft)) < 0)
+		{
+			if(nwrite == n)
+				return(-1);
+			else
+				break;
+		}else if(nwrite == 0)
+			break;
+
+		nleft -= nwrite;
+		ptr += nwrite;
+	}
+	return(n - nleft);
+}
+```
+
+
+
+### 14.8 存储映射 I/O
+
+* 存储映射I/O能够将一个磁盘文件映射到存储空间的一个缓冲区中
+
+  * 读出缓冲区数据相当于读出文件相应数据。
+  * 写入缓冲区数据相当于写入文件相应数据.
+
+  * 在不适用`read`和`write`的情况下执行I/O.
+
+```C
+#include<sys/mman.h>
+void *mmap(void *addr, size_t len, int prot, int flag, int fd, off_t off);
+```
+
+* 参数
+
+  * addr
+
+  指定映射存储区的起始地址，设置为0表示由系统选择该映射区的起始地址。此函数的返回值是该映射区的起始地址。
+
+  * fd
+
+  被映射的文件描述符，映射前需要打开该文件。len是映射的字节数，off是要映射字节在文件中的起始偏移量
+
+  * prot
+
+    对应映射区保护要求，**权限不能超过open函数打开文件的保护权限**（open指定RD_ONLY则不能设为PROT_WRITE）
+
+    ![E51F9C191650DDA5ADFD83CF53E1D314](../jpg/E51F9C191650DDA5ADFD83CF53E1D314.png)
+
+  * flag
+      * MAP_FIXED
+          * 返回值必须等于addr，只能映射到该地址。如果未指定且addr非0，则视为对内核的一种建议，最终内核不一定用。
+          
+      * MAP_SHARED
+          * 对映射区的存储操作视为对文件的write。即会修改原文件。
+          
+      * MAP_PRIVATE
+           * 对映射区的存储操作不会修改原文件，会产生一个文件私有副本，之后对该映射区的引用都是引用到副本。
+      
+         ![730B0074AF8E6CF396AD0F0A4DAD7E42](../jpg/730B0074AF8E6CF396AD0F0A4DAD7E42.png)
+      
+         具体情况视实现而定
+  
+* 相关信号
+
+  * SIGVEGV
+  
+      进程试图访问对它不可用的存储区。设置只读却试图写入。
+  
+  * SIGBUS
+  
+      试图访问映射区某个部分，这个部分已经不存在。
+  
+* 子进程能fork继承存储映射区（复制父进程地址空间，该区是地址空间的一部分，所以exec不能继承）
+
+* 更改一个现有映射页的权限
+
+```c
+#include<sys/mman.h>
+int mprotect(void *addr, size_t len,int prot);
+```
+
+* 调用msync将该页冲洗到映射的文件
+
+  * flags
+
+    * MS_SYNC
+
+      返回之前等待写操作完成
+
+    * MS_ASYNC
+
+      不等待
+
+    * MS_INVALIDATE
+
+      允许通知操作系统丢弃那些与底层存储器没有**同步**的页
+
+```c
+#include<sys/man.h>
+int msync(void *addr, size_t len,int flags);
+```
+
+映射是私有的（MAP_PRIVATE），不修改文件。
+
+* 解除映射
+
+  munmap不会影响映射对象，所以为确保底层文件被成功修改，需要在这之前调用msync。进程结束也会自动解除映射，MAP_SHARED的页会有内核更新，MAP_PRIVATE的页会丢弃。
+
+```c
+#include<sys/mman.h>
+int munmap(void *addr, size_t len);
+```
+
+
+
+
+
+
+
+
+
 # 15.0  进程间的通信 
+
+### 15.2 管道
+
+* 管道只能在具有公共祖先的两个进程之间使用。一个管道有一个进程创建，在进程fork后，这个管道就能在父进程和子进程之间使用。
+
+```c
+#include<unistd.h>
+int pipe(int fd[2]);
+//fd[0] 为读打开 fd[1] 为写打开。 fd[0]的输出是fd[1]的输入
+```
+
+
+
+### 15.6 XSI IPC
+
+* 服务器进程可以指定键IPC_PRIVATE 创建一个IPC结构，将返回的标识符存在某处以便客户进程取用。
+
+​		缺点：服务器进程要将整型标识符写入文件中，客户进程又要从文件中读出。
+
+* 一个公共头文件定义客户进程和服务器进程都任何的键。然后服务器进程指定此键创建一个新的IPC结构。
+
+  缺点：该键可能已与一个IPC结构相结合。
+
+* 客户进程和服务器认同一个路径名和项目ID，调用ftok函数生成一个键。
+
+```c
+#include<sys/ipc.h>
+key_t ftok(const char* path, int id);
+```
+
+​		缺点：对于不同文件路径和不同项目ID，可能产生相同键。
+
+
+
+* 满足两个条件之一，创建一个新的IPC结构
+
+  * key取值IPC_PRIVATE
+
+  * key没有与特定的类型（信号量，消息队列等）结合，且flag中指定了IPC_CREAT
+
+* 指定IPC_CREAT和O_EXCL标志 如果IPC结构已存在，则创建就会报错。
+
+
+
+
+
+
+
+
+
+### 15.7 消息队列
+
+```c
+#include<sys/msg.h>
+int msgget(key_t key, int flag);
+```
+执行成功返回非负队列ID
+
+```c
+#include<sys/msg.h>
+int msgctl(int msqid, int cmd, struct msqid_ds *buf);
+```
+
+cmd参数说明：
+
+* IPC_STAT
+
+  获取此队列的msqid_ds结构，并存放在指向的buf中。
+
+* IPC_SET
+
+  按由buf指向结构中的值，设置此队列相关结构中的下列四个字段：msg_perm.uid、msg_perm.gid、msg_perm.mode和msg_qbytes。 有效用户ID等于cuid和uid或者具有超级用户的权力才能执行。只有超级用户才能增加msg_qbytes的值。
+
+* IPC_RMID 
+
+  删除该消息队列以及仍在该队列中的所有数据，如果执行，则其他进程访问该队列是会出错。
+
+
+
+```c
+struct msqid_ds{
+    struct ipc_perm	msg_perm;
+    msgqnum_t	msg_qnum;
+    msglen_t	msg_qbytes;
+    pit_t	msg_lspid;
+    pid_t	msg_lrpid;
+    time_t	msg_stime;
+    time_t	msg_rtime;
+    time_t	msg_ctime;
+};
+struct ipc_perm{
+	uid_t	uid;
+    git_t	gid;
+    uid_t	cuid;
+    git_t	cgid;
+    mode_t	mode;
+};
+```
+
+```c
+#include<sys/msg.h>
+int msgsnd(int msqid, const void *ptr, size_t nbytes, int flag);
+```
+
+
+
+```c
+#include<sys/msg.h> 
+int msgrecv(int msqid, void* ptr, size_t nbytes, long type, int flag);
+```
+
+
+
+
+
+
 
 # 17.0  高级进程间通信
 
